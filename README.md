@@ -26,11 +26,7 @@ Ein OpenDeck-Plugin für die **Mirabox HSV293S** (und kompatible AJazz/CRT-Proto
 - **Betriebssystem:** Linux
 - **Gerät:** Mirabox HSV293S (oder anderes AJazz-Gerät mit CRT-HID-Protokoll)
 - **Software:** [OpenDeck](https://github.com/nekename/OpenDeck)
-- **Berechtigungen:** Nutzer muss in der Gruppe `plugdev` sein für HID-Zugriff:
-  ```bash
-  sudo usermod -aG plugdev $USER
-  # danach neu anmelden
-  ```
+- **Berechtigungen:** Keine zusätzliche Konfiguration nötig – wenn OpenDeck bereits läuft und den Deck ansteuert, hat der Nutzer automatisch den benötigten HID-Zugriff
 
 ### Installation
 
@@ -90,11 +86,7 @@ A plugin for OpenDeck for the **Mirabox HSV293S** (and compatible AJazz/CRT-prot
 - **OS:** Linux
 - **Device:** Mirabox HSV293S (or other AJazz device using the CRT HID protocol)
 - **Software:** [OpenDeck](https://github.com/nekename/OpenDeck)
-- **Permissions:** User must be in the `plugdev` group for HID access:
-  ```bash
-  sudo usermod -aG plugdev $USER
-  # then log out and back in
-  ```
+- **Permissions:** No additional configuration needed – if OpenDeck is already running and controlling the device, the user automatically has the required HID access
 
 ### Installation
 
