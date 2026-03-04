@@ -2,11 +2,14 @@ use openaction::*;
 use serde::{Deserialize, Serialize};
 use std::sync::{Arc, OnceLock};
 use std::sync::atomic::{AtomicU16, Ordering};
+use std::path::Path;
 use tokio::sync::Mutex;
 use tokio::time::{sleep, Duration};
+use tokio::fs;
 use tokio_tungstenite::connect_async;
 use futures_util::SinkExt;
 use chrono::Timelike;
+
 
 const VERSION: &str = "1.4.0";
 
@@ -326,20 +329,54 @@ async fn timer_task() {
 }
 
 // ---------------------------------------------------------------------------
+// Find Stream Deck: Enumerate devices and find the stream deck via USB
+// ---------------------------------------------------------------------------
+async fn find_deck_device() -> Option<String> {
+    let by_id_path = "/dev/input/by-id";
+    let mut entries = fs::read_dir(by_id_path).await.ok()?;
+
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let name = entry.file_name();
+        let name_str = name.to_string_lossy();
+
+        if name_str.contains("Elgato_Stream_Deck") && name_str.contains("hidraw") {
+            let full_path = Path::new(by_id_path).join(&name);
+            if let Ok(resolved) = fs::canonicalize(&full_path).await {
+                let resolved_str = resolved.to_string_lossy().into_owned();
+                let _ = HID_PATH.set(resolved_str.clone());
+                return Some(resolved_str);
+            }
+        }
+    }
+
+    None
+}
+
+// ---------------------------------------------------------------------------
 // HID monitor: reset timer on any deck button press
 // ---------------------------------------------------------------------------
 async fn hid_watcher_task() {
     use tokio::io::AsyncReadExt;
 
-    let mut file = None;
-    for path in &["/dev/hidraw8", "/dev/hidraw9"] {
-        if let Ok(f) = tokio::fs::OpenOptions::new().read(true).open(path).await {
-            let _ = HID_PATH.set(path.to_string());
-            file = Some(f);
-            break;
+    let device_path = match find_deck_device().await {
+        Some(p) => p,
+        None => {
+            eprintln!("No Deck found in /dev/input/by-id");
+            return;
         }
-    }
-    let mut f = match file { Some(f) => f, None => return };
+    };
+
+    let mut f = match tokio::fs::OpenOptions::new()
+    .read(true)
+    .open(&device_path)
+    .await
+    {
+        Ok(f) => f,
+        Err(e) => {
+            eprintln!("Failed to open {device_path}: {e}");
+            return;
+        }
+    };
 
     let mut buf = [0u8; 64];
     loop {
@@ -347,7 +384,9 @@ async fn hid_watcher_task() {
             Ok(n) if n > 0 => {
                 let arc = global_state();
                 let mut s = arc.lock().await;
-                if s.enabled { s.last_activity = std::time::Instant::now(); }
+                if s.enabled {
+                    s.last_activity = std::time::Instant::now();
+                }
             }
             Ok(_) => {}
             Err(_) => break,
